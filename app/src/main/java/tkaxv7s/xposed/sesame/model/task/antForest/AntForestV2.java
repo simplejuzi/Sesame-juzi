@@ -11,10 +11,7 @@ import tkaxv7s.xposed.sesame.data.ModelGroup;
 import tkaxv7s.xposed.sesame.data.RuntimeInfo;
 import tkaxv7s.xposed.sesame.data.modelFieldExt.*;
 import tkaxv7s.xposed.sesame.data.task.ModelTask;
-import tkaxv7s.xposed.sesame.entity.AlipayUser;
-import tkaxv7s.xposed.sesame.entity.CollectEnergyEntity;
-import tkaxv7s.xposed.sesame.entity.FriendWatch;
-import tkaxv7s.xposed.sesame.entity.RpcEntity;
+import tkaxv7s.xposed.sesame.entity.*;
 import tkaxv7s.xposed.sesame.hook.ApplicationHook;
 import tkaxv7s.xposed.sesame.hook.Toast;
 import tkaxv7s.xposed.sesame.model.base.TaskCommon;
@@ -121,7 +118,6 @@ public class AntForestV2 extends ModelTask {
     private BooleanModelField exchangeCollectToFriendTimes7Days;
     private BooleanModelField exchangeEnergyShield;
     private BooleanModelField userPatrol;
-    private BooleanModelField totalCertCount;
     private BooleanModelField collectGiftBox;
     private BooleanModelField medicalHealthFeeds;
     private BooleanModelField sendEnergyByAction;
@@ -190,7 +186,6 @@ public class AntForestV2 extends ModelTask {
         modelFields.addField(animalConsumeProp = new BooleanModelField("animalConsumeProp", "派遣动物", false));
         modelFields.addField(userPatrol = new BooleanModelField("userPatrol", "巡护森林", false));
         modelFields.addField(receiveForestTaskAward = new BooleanModelField("receiveForestTaskAward", "森林任务", false));
-        modelFields.addField(totalCertCount = new BooleanModelField("totalCertCount", "记录证书总数", false));
         modelFields.addField(collectGiftBox = new BooleanModelField("collectGiftBox", "领取礼盒", false));
         modelFields.addField(medicalHealthFeeds = new BooleanModelField("medicalHealthFeeds", "健康医疗", false));
         modelFields.addField(sendEnergyByAction = new BooleanModelField("sendEnergyByAction", "森林集市", false));
@@ -283,13 +278,6 @@ public class AntForestV2 extends ModelTask {
                     String whackMoleStatus = selfHomeObject.optString("whackMoleStatus");
                     if ("CAN_PLAY".equals(whackMoleStatus) || "CAN_INITIATIVE_PLAY".equals(whackMoleStatus) || "NEED_MORE_FRIENDS".equals(whackMoleStatus)) {
                         whackMole();
-                    }
-                }
-                if (totalCertCount.getValue()) {
-                    JSONObject userBaseInfo = selfHomeObject.optJSONObject("userBaseInfo");
-                    if (userBaseInfo != null) {
-                        int totalCertCount = userBaseInfo.optInt("totalCertCount", 0);
-                        FileUtil.setCertCount(selfId, Log.getFormatDate(), totalCertCount);
                     }
                 }
                 boolean hasMore = false;
@@ -453,8 +441,9 @@ public class AntForestV2 extends ModelTask {
                 Map<String, Integer> friendMap = waterFriendList.getValue();
                 for (Map.Entry<String, Integer> friendEntry : friendMap.entrySet()) {
                     String uid = friendEntry.getKey();
-                    if (selfId.equals(uid))
+                    if (selfId.equals(uid)) {
                         continue;
+                    }
                     Integer waterCount = friendEntry.getValue();
                     if (waterCount == null || waterCount <= 0) {
                         continue;
@@ -462,7 +451,28 @@ public class AntForestV2 extends ModelTask {
                     if (waterCount > 3)
                         waterCount = 3;
                     if (Status.canWaterFriendToday(uid, waterCount)) {
-                        waterFriendEnergy(uid, waterCount);
+                        try {
+                            String s = AntForestRpcCall.queryFriendHomePage(uid);
+                            TimeUtil.sleep(100);
+                            JSONObject jo = new JSONObject(s);
+                            if ("SUCCESS".equals(jo.getString("resultCode"))) {
+                                String bizNo = jo.getString("bizNo");
+                                KVNode<Integer, Boolean> waterCountKVNode = returnFriendWater(uid, bizNo, waterCount, waterFriendCount.getValue());
+                                waterCount = waterCountKVNode.getKey();
+                                if (waterCount > 0) {
+                                    Status.waterFriendToday(uid, waterCount);
+                                }
+                                if (!waterCountKVNode.getValue()) {
+                                    break;
+                                }
+                            } else {
+                                Log.record(jo.getString("resultDesc"));
+                                Log.i(s);
+                            }
+                        } catch (Throwable t) {
+                            Log.i(TAG, "waterFriendEnergy err:");
+                            Log.printStackTrace(TAG, t);
+                        }
                     }
                 }
                 Set<String> set = whoYouWantToGiveTo.getValue();
@@ -1209,31 +1219,12 @@ public class AntForestV2 extends ModelTask {
         }
     }
 
-    private void waterFriendEnergy(String userId, int count) {
-        try {
-            String s = AntForestRpcCall.queryFriendHomePage(userId);
-            TimeUtil.sleep(100);
-            JSONObject jo = new JSONObject(s);
-            if ("SUCCESS".equals(jo.getString("resultCode"))) {
-                String bizNo = jo.getString("bizNo");
-                count = returnFriendWater(userId, bizNo, count, waterFriendCount.getValue());
-                if (count > 0)
-                    Status.waterFriendToday(userId, count);
-            } else {
-                Log.record(jo.getString("resultDesc"));
-                Log.i(s);
-            }
-        } catch (Throwable t) {
-            Log.i(TAG, "waterFriendEnergy err:");
-            Log.printStackTrace(TAG, t);
-        }
-    }
-
-    private int returnFriendWater(String userId, String bizNo, int count, int waterEnergy) {
+    private KVNode<Integer, Boolean> returnFriendWater(String userId, String bizNo, int count, int waterEnergy) {
         if (bizNo == null || bizNo.isEmpty()) {
-            return 0;
+            return new KVNode<>(0, true);
         }
         int wateredTimes = 0;
+        boolean isContinue = true;
         try {
             String s;
             JSONObject jo;
@@ -1258,6 +1249,7 @@ public class AntForestV2 extends ModelTask {
                         break label;
                     case "ENERGY_INSUFFICIENT":
                         Log.record("好友浇水🚿" + jo.getString("resultDesc"));
+                        isContinue = false;
                         break label;
                     default:
                         Log.record("好友浇水🚿" + jo.getString("resultDesc"));
@@ -1269,7 +1261,7 @@ public class AntForestV2 extends ModelTask {
             Log.i(TAG, "returnFriendWater err:");
             Log.printStackTrace(TAG, t);
         }
-        return wateredTimes;
+        return new KVNode<>(wateredTimes, isContinue);
     }
 
     private int getEnergyId(int waterEnergy) {
@@ -1999,23 +1991,70 @@ public class AntForestV2 extends ModelTask {
         }
     }
 
+    // 查询可派遣伙伴
+    private void queryAnimalPropList() {
+        try {
+            JSONObject jo = new JSONObject(AntForestRpcCall.queryAnimalPropList());
+            if ("SUCCESS".equals(jo.getString("resultCode"))) {
+                JSONArray animalProps = jo.getJSONObject("resData").getJSONArray("animalProps");
+                JSONObject animalProp = null;
+                for (int i = 0; i < animalProps.length(); i++) {
+                    jo = animalProps.getJSONObject(i);
+                    if (animalProp == null
+                            || jo.getJSONObject("main").getInt("holdsNum")
+                            > animalProp.getJSONObject("main").getInt("holdsNum")) {
+                        animalProp = jo;
+                    }
+                }
+                consumeAnimalProp(animalProp);
+            } else {
+                Log.i(TAG, jo.getString("resultDesc"));
+            }
+        } catch (Throwable t) {
+            Log.i(TAG, "queryAnimalPropList err:");
+            Log.printStackTrace(TAG, t);
+        }
+    }
+
+    // 派遣伙伴
+    private void consumeAnimalProp(JSONObject animalProp) {
+        if (animalProp == null) {
+            return;
+        }
+        try {
+            String propGroup = animalProp.getJSONObject("main").getString("propGroup");
+            String propType = animalProp.getJSONObject("main").getString("propType");
+            String name = animalProp.getJSONObject("partner").getString("name");
+            JSONObject jo = new JSONObject(AntForestRpcCall.consumeProp(propGroup, propType, false));
+            if ("SUCCESS".equals(jo.getString("resultCode"))) {
+                Log.forest("巡护派遣🐆[" + name + "]");
+            } else {
+                Log.i(TAG, jo.getString("resultDesc"));
+            }
+        } catch (Throwable t) {
+            Log.i(TAG, "consumeAnimalProp err:");
+            Log.printStackTrace(TAG, t);
+        }
+    }
+
     private void queryAnimalAndPiece(boolean canConsumeProp) {
         try {
             JSONObject jo = new JSONObject(AntForestRpcCall.queryAnimalAndPiece(0));
             if ("SUCCESS".equals(jo.getString("resultCode"))) {
                 JSONArray animalProps = jo.getJSONArray("animalProps");
+                JSONObject animalProp = null;
                 for (int i = 0; i < animalProps.length(); i++) {
                     jo = animalProps.getJSONObject(i);
-                    JSONObject animal = jo.getJSONObject("animal");
-                    int id = animal.getInt("id");
-                    if (canConsumeProp && animalConsumeProp.getValue()) {
-                        JSONObject main = jo.optJSONObject("main");
-                        if (main != null && main.optInt("holdsNum", 0) > 0) {
-                            canConsumeProp = !AnimalConsumeProp(id);
+                    if (animalConsumeProp.getValue() && canConsumeProp) {
+                        if (animalProp == null
+                                || jo.getJSONObject("main").getInt("holdsNum")
+                                > animalProp.getJSONObject("main").getInt("holdsNum")) {
+                            animalProp = jo;
                         }
                     }
                     JSONArray pieces = jo.getJSONArray("pieces");
                     boolean canCombine = true;
+                    int id = jo.getJSONObject("animal").getInt("id");
                     for (int j = 0; j < pieces.length(); j++) {
                         jo = pieces.optJSONObject(j);
                         if (jo == null || jo.optInt("holdsNum", 0) <= 0) {
@@ -2026,6 +2065,9 @@ public class AntForestV2 extends ModelTask {
                     if (canCombine) {
                         combineAnimalPiece(id);
                     }
+                }
+                if (animalProp != null) {
+                    AnimalConsumeProp(animalProp.getJSONObject("animal").getInt("id"));
                 }
             } else {
                 Log.i(TAG, jo.getString("resultDesc"));
@@ -2346,7 +2388,7 @@ public class AntForestV2 extends ModelTask {
             return () -> {
                 String userName = UserIdMap.getMaskName(userId);
                 int averageInteger = offsetTimeMath.getAverageInteger();
-                long readyTime = produceTime + averageInteger - advanceTimeInt - delayTimeMath.getAverageInteger() - System.currentTimeMillis();
+                long readyTime = produceTime + averageInteger - advanceTimeInt - delayTimeMath.getAverageInteger() - System.currentTimeMillis() + 50;
                 if (readyTime > 0) {
                     try {
                         Thread.sleep(readyTime);
