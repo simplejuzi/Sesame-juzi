@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title></title>
-    <link rel="stylesheet" href="./css/vant.css?v=1" />
-    <link rel="stylesheet" href="./css/index.css?v=1" />
+    <link rel="stylesheet" href="./CSS/vant.css?v=1" />
+    <link rel="stylesheet" href="./CSS/index.css?v=1" />
     <script>
       function onBackPressed() {
         if (window.handleData && window.isCanSave) {
@@ -46,8 +46,8 @@
   </head>
 
   <body>
-    <script src="./js/vue3.js"></script>
-    <script src="./js/vant.js"></script>
+    <script src="./JS/vue3.js"></script>
+    <script src="./JS/vant.js"></script>
     <div id="app" v-cloak>
       <div class="content" v-if="tabs&&setData">
         <div class="theme1" v-if="theme==='theme1'">
@@ -67,7 +67,7 @@
                       class="list-icon"
                       :src="`./png/${tabs_index+'_ed'}.png`"
                     />
-                  
+
                   </div>
                   <div  v-show="currentTab!==tabs_index">
                     <van-image
@@ -167,7 +167,7 @@
                       class="list-icon"
                       src="./png/13_ed.png"
                     />
-                  
+
                   </div>
                   <div  v-show="currentTab!=13">
                     <van-image
@@ -219,7 +219,7 @@
                       class="list-icon"
                       :src="`./png/${tabs_index+'_ed'}.png`"
                     />
-                  
+
                   </div>
                   <div  v-show="currentTab!==tabs_index">
                     <van-image
@@ -318,7 +318,7 @@
                       class="list-icon"
                       src="./png/13_ed.png"
                     />
-                  
+
                   </div>
                   <div  v-show="currentTab!=13">
                     <van-image
