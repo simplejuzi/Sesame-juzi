@@ -3,7 +3,7 @@ apply plugin: 'com.android.application'
 android {
     def version = project.getProperties().get("version")
     if (version == null || "unspecified".equalsIgnoreCase(version)) {
-        version = "TEST"
+        version = "999"
     }
 
     compileSdk 34
