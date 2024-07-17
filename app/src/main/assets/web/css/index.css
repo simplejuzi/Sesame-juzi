@@ -189,6 +189,7 @@ video {
 
 .pdTB10 {
   padding: 10px 0;
+  border-bottom: 1px solid #f8f8f8;
 }
 
 .pdT6 {
@@ -257,12 +258,13 @@ video {
 }
 
 .theme2 .content-box {
-  width: calc(100vw - 40px);
+  width: calc(100vw - 56px);
   min-height: calc(100vh - 100px);
   overflow-x: hidden;
   overflow-y: auto;
-  margin: 10px;
-  padding: 10px;
+  margin: 14px;
+  padding: 14px;
+  border-radius: 16px;
   background-color: #ffffff;
 }
 
