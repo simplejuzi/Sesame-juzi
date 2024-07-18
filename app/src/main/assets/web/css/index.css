@@ -138,6 +138,7 @@ video {
   min-height: 25px !important;
 }
 .van-dialog {
+  margin-top: 28px !important;
   z-index: 999999 !important;
   width: calc(100vw - 60px) !important;
 }
@@ -311,13 +312,16 @@ video {
 }
 
 .dialog-list .checked-label {
+  font-size: 14px !important;
   color: #216eee !important;
 }
 .dialog-list .list-label {
+  font-size: 14px !important;
   width: calc(100% - 40px) !important;
 }
 .dialog-list .dialog-list-item {
 padding: 5px 0;
+  border-bottom: 1px solid #fafafa;
 }
 
 .dialog-list .van-checkbox__label--disabled {
@@ -337,13 +341,12 @@ padding: 5px 0;
 }
 
 .dialog-list {
-  padding:0 20px 0 12px;
+  padding:0 20px 0 4px;
   position: relative;
   border-top: 1px solid #f6f6f6;
 }
 
 .dialog-list .dialog-list-container {
- 
   width: 100%;
   overflow: hidden;
 }
@@ -376,15 +379,15 @@ padding: 5px 0;
 }
 
 .selectQuantity_box{
-  margin-left: 20px
+  margin-left: 20px;
+  font-size: 12px;
 }
 .list_box{
   display: flex;
   flex-direction: row;
-  justify-content: center;
   align-items: center;
-  /*border-bottom: 1px solid #f6f6f6;*/
 }
 .listNumber {
-  margin-left: 20px
+  width: 38px;
+  text-align: center;
 }
