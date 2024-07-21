@@ -3,6 +3,7 @@ package tkaxv7s.xposed.sesame.model.task.antFarm;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+
 import tkaxv7s.xposed.sesame.data.ModelFields;
 import tkaxv7s.xposed.sesame.data.ModelGroup;
 import tkaxv7s.xposed.sesame.data.modelFieldExt.*;
@@ -17,21 +18,6 @@ import java.util.*;
 
 public class AntFarm extends ModelTask {
     private static final String TAG = AntFarm.class.getSimpleName();
-
-    private String ownerFarmId;
-    private String userId;
-    private Animal[] animals;
-    private Animal ownerAnimal = new Animal();
-    private int foodStock;
-    private int foodStockLimit;
-    private String rewardProductNum;
-    private RewardFriend[] rewardList;
-    private double benevolenceScore;
-    private double harvestBenevolenceScore;
-    private int unreceiveTaskAward = 0;
-
-    private FarmTool[] farmTools;
-
     private static final List<String> bizKeyList;
 
     static {
@@ -39,6 +25,7 @@ public class AntFarm extends ModelTask {
         bizKeyList.add("ADD_GONGGE_NEW");
         bizKeyList.add("USER_STARVE_PUSH");
         bizKeyList.add("YEB_PURCHASE");
+        bizKeyList.add("HEART_DONATION_ADVANCED_FOOD_V2");//爱心美食任务
         bizKeyList.add("WIDGET_addzujian");//添加庄园小组件
         bizKeyList.add("HIRE_LOW_ACTIVITY");//雇佣小鸡拿饲料
         bizKeyList.add("DIANTAOHUANDUAN");//去点淘逛一逛
@@ -60,16 +47,18 @@ public class AntFarm extends ModelTask {
         bizKeyList.add("SLEEP");// 让小鸡去睡觉
     }
 
-    @Override
-    public String getName() {
-        return "庄园";
-    }
-
-    @Override
-    public ModelGroup getGroup() {
-        return ModelGroup.FARM;
-    }
-
+    private String ownerFarmId;
+    private String userId;
+    private Animal[] animals;
+    private Animal ownerAnimal = new Animal();
+    private int foodStock;
+    private int foodStockLimit;
+    private String rewardProductNum;
+    private RewardFriend[] rewardList;
+    private double benevolenceScore;
+    private double harvestBenevolenceScore;
+    private int unreceiveTaskAward = 0;
+    private FarmTool[] farmTools;
     private StringModelField sleepTime;
     private IntegerModelField sleepMinutes;
     private BooleanModelField feedAnimal;
@@ -104,6 +93,19 @@ public class AntFarm extends ModelTask {
     private ChoiceModelField hireAnimalType;
     private SelectModelField hireAnimalList;
     private BooleanModelField enableDdrawGameCenterAward;
+    private BooleanModelField getFeed;
+    private SelectModelField getFeedlList;
+    private ChoiceModelField getFeedType;
+
+    @Override
+    public String getName() {
+        return "庄园";
+    }
+
+    @Override
+    public ModelGroup getGroup() {
+        return ModelGroup.FARM;
+    }
 
     @Override
     public ModelFields getFields() {
@@ -114,6 +116,9 @@ public class AntFarm extends ModelTask {
         modelFields.addField(rewardFriend = new BooleanModelField("rewardFriend", "打赏好友", false));
         modelFields.addField(feedAnimal = new BooleanModelField("feedAnimal", "自动喂小鸡", false));
         modelFields.addField(feedFriendAnimalList = new SelectAndCountModelField("feedFriendAnimalList", "喂小鸡好友列表", new LinkedHashMap<>(), AlipayUser::getList));
+        modelFields.addField(getFeed = new BooleanModelField("getFeed", "一起拿饲料", false));
+        modelFields.addField(getFeedType = new ChoiceModelField("getFeedType", "一起拿饲料 | 动作", GetFeedType.GIVE, GetFeedType.nickNames));
+        modelFields.addField(getFeedlList = new SelectModelField("getFeedlList", "赠送好友列表", new LinkedHashSet<>(), AlipayUser::getList));
         modelFields.addField(acceptGift = new BooleanModelField("acceptGift", "收麦子", false));
         modelFields.addField(visitFriendList = new SelectAndCountModelField("visitFriendList", "送麦子好友列表", new LinkedHashMap<>(), AlipayUser::getList));
         modelFields.addField(hireAnimal = new BooleanModelField("hireAnimal", "雇佣小鸡 | 开启", false));
@@ -281,7 +286,6 @@ public class AntFarm extends ModelTask {
             if (answerQuestion.getValue() && Status.canAnswerQuestionToday()) {
                 answerQuestion();
             }
-
             if (receiveFarmTaskAward.getValue()) {
                 doFarmDailyTask();
                 receiveFarmTaskAward();
@@ -374,6 +378,10 @@ public class AntFarm extends ModelTask {
                 drawGameCenterAward();
             }
 
+            // 一起拿小鸡饲料
+            if (getFeed.getValue())
+                letsGetChickenFeedTogether();
+
             //小鸡睡觉&起床
             animalSleepAndWake();
 
@@ -438,6 +446,7 @@ public class AntFarm extends ModelTask {
             }
             JSONObject jo = new JSONObject(s);
             if ("SUCCESS".equals(jo.getString("memo"))) {
+                Log.record("庄园加载成功");
                 rewardProductNum = jo.getJSONObject("dynamicGlobalConfig").getString("rewardProductNum");
                 JSONObject joFarmVO = jo.getJSONObject("farmVO");
                 foodStock = joFarmVO.getInt("foodStock");
@@ -1826,7 +1835,9 @@ public class AntFarm extends ModelTask {
                             if (chouchouleReceiveFarmTaskAward(taskId)) {
                                 doubleCheck = true;
                             }
-                        } else if ("TODO".equals(taskStatus) && !Objects.equals(jo.optString("innerAction"), "DONATION")) {
+                            //
+//                        } else if ("TODO".equals(taskStatus) && !Objects.equals(jo.optString("innerAction"), "DONATION")) {
+                        } else if ("TODO".equals(taskStatus)) {
                             if (chouchouleDoFarmTask(taskId, title, rightsTimesLimit - rightsTimes)) {
                                 doubleCheck = true;
                             }
@@ -2158,41 +2169,90 @@ public class AntFarm extends ModelTask {
         }
     }
 
-    public interface DonationCount {
+    // 一起拿小鸡饲料
+    private void letsGetChickenFeedTogether() {
+        try {
+            JSONObject jo = new JSONObject(AntFarmRpcCall.letsGetChickenFeedTogether());
+            if (jo.getBoolean("success")) {
+                String bizTraceId = jo.getString("bizTraceId");
+                JSONArray p2pCanInvitePersonDetailList = jo.getJSONArray("p2pCanInvitePersonDetailList");
 
-        int ONE = 0;
-        int ALL = 1;
+                // 统计可邀请和已邀请的数量
+                int canInviteCount = 0;
+                int hasInvitedCount = 0;
 
-        String[] nickNames = {"随机一次", "随机多次"};
+                List<String> userIdList = new ArrayList<>(); // 保存 userId
 
-    }
+                for (int i = 0; i < p2pCanInvitePersonDetailList.length(); i++) {
+                    JSONObject personDetail = p2pCanInvitePersonDetailList.getJSONObject(i);
+                    String inviteStatus = personDetail.getString("inviteStatus");
+                    String userId = personDetail.getString("userId");
 
-    public interface RecallAnimalType {
+                    userIdList.add(userId); // 将 userId 存起来
 
-        int ALWAYS = 0;
-        int WHEN_THIEF = 1;
-        int WHEN_HUNGRY = 2;
-        int NEVER = 3;
+                    // 统计可邀请和已邀请的数量
+                    if (inviteStatus.equals("CAN_INVITE")) {
+                        canInviteCount++;
+                    } else if (inviteStatus.equals("HAS_INVITED")) {
+                        hasInvitedCount++;
+                    }
+                }
 
-        String[] nickNames = {"始终召回", "偷吃召回", "饥饿召回", "暂不召回"};
-    }
+                // 判断今天已经邀请了多少人
+                int invitedToday = hasInvitedCount;
 
-    public interface SendBackAnimalWay {
+                // 可以邀请的人数不超过五个
+                int remainingInvites = 5 - invitedToday;
+                int invitesToSend = Math.min(canInviteCount, remainingInvites);
+                if (invitesToSend==0)
+                    return;
+                Set<String> getFeedSet = getFeedlList.getValue();
 
-        int HIT = 0;
-        int NORMAL = 1;
+                // 判断 getFeedType 的值来确定是根据勾选列表还是随机选择发送邀请
+                if (getFeedType.getValue() == GetFeedType.GIVE) {
+                    // 根据勾选列表进行邀请操作
+                    for (int j = 0; j < invitesToSend; j++) {
+                        String userId = userIdList.get(j);
+                        // 判断 userId 是否存在于 getFeedSet 中
+                        if (getFeedSet.contains(userId)) {
+                            // 调用邀请方法
+                            jo = new JSONObject(AntFarmRpcCall.giftOfFeed(bizTraceId, userId));
+                            if (jo.getBoolean("success")) {
+                                Log.record("一起拿小鸡饲料🥡 [送饲料：" + UserIdMap.getMaskName(userId) + "]");
+                            } else {
+                                Log.record("邀请失败：" + jo);
+                                break; // 如果邀请失败，根据需求处理中断操作
+                            }
+                        } else {
+                            // Log.record("用户 " + userId + " 不在勾选的好友列表中，不发送邀请。");
+                        }
+                    }
+                } else {
+                    // 随机选择发送邀请操作
+                    Random random = new Random();
+                    for (int j = 0; j < invitesToSend; j++) {
+                        int randomIndex = random.nextInt(userIdList.size());
+                        String userId = userIdList.get(randomIndex);
+                        // 调用邀请方法
+                        jo = new JSONObject(AntFarmRpcCall.giftOfFeed(bizTraceId, userId));
+                        if (jo.getBoolean("success")) {
+                            Log.record("一起拿小鸡饲料🥡 [送饲料：" + UserIdMap.getMaskName(userId) + "]");
+                        } else {
+                            Log.record("邀请失败：" + jo);
+                            break; // 如果邀请失败，根据需求处理中断操作
+                        }
+                        // 从列表中移除已经尝试过的用户ID，确保不重复邀请同一个人
+                        userIdList.remove(randomIndex);
+                    }
+                }
 
-        String[] nickNames = {"攻击", "常规"};
 
-    }
-
-    public interface SendBackAnimalType {
-
-        int BACK = 0;
-        int NOT_BACK = 1;
-
-        String[] nickNames = {"选中遣返", "选中不遣返"};
-
+            }
+        } catch (JSONException e) {
+            Log.i(TAG, "letsGetChickenFeedTogether err:");
+            Log.printStackTrace(e);
+            throw new RuntimeException(e);
+        }
     }
 
     public enum AnimalBuff {
@@ -2231,6 +2291,74 @@ public class AntFarm extends ModelTask {
         }
     }
 
+    public enum TaskStatus {
+        TODO, FINISHED, RECEIVED
+    }
+
+    public interface DonationCount {
+
+        int ONE = 0;
+        int ALL = 1;
+
+        String[] nickNames = {"随机一次", "随机多次"};
+
+    }
+
+    public interface RecallAnimalType {
+
+        int ALWAYS = 0;
+        int WHEN_THIEF = 1;
+        int WHEN_HUNGRY = 2;
+        int NEVER = 3;
+
+        String[] nickNames = {"始终召回", "偷吃召回", "饥饿召回", "暂不召回"};
+    }
+
+    public interface SendBackAnimalWay {
+
+        int HIT = 0;
+        int NORMAL = 1;
+
+        String[] nickNames = {"攻击", "常规"};
+
+    }
+
+    public interface SendBackAnimalType {
+
+        int BACK = 0;
+        int NOT_BACK = 1;
+
+        String[] nickNames = {"选中遣返", "选中不遣返"};
+
+    }
+
+    public interface HireAnimalType {
+
+        int HIRE = 0;
+        int DONT_HIRE = 1;
+
+        String[] nickNames = {"选中雇佣", "选中不雇佣"};
+
+    }
+
+    public interface GetFeedType {
+
+        int GIVE = 0;
+        int RANDOM = 1;
+
+        String[] nickNames = {"选中赠送", "随机送"};
+
+    }
+
+    public interface NotifyFriendType {
+
+        int NOTIFY = 0;
+        int DONT_NOTIFY = 1;
+
+        String[] nickNames = {"选中通知", "选中不通知"};
+
+    }
+
     private static class Animal {
         public String animalId, currentFarmId, masterFarmId,
                 animalBuff, subAnimalType, animalFeedStatus, animalInteractStatus;
@@ -2246,10 +2374,6 @@ public class AntFarm extends ModelTask {
 
     }
 
-    public enum TaskStatus {
-        TODO, FINISHED, RECEIVED
-    }
-
     private static class RewardFriend {
         public String consistencyKey, friendId, time;
     }
@@ -2258,23 +2382,5 @@ public class AntFarm extends ModelTask {
         public ToolType toolType;
         public String toolId;
         public int toolCount, toolHoldLimit;
-    }
-
-    public interface HireAnimalType {
-
-        int HIRE = 0;
-        int DONT_HIRE = 1;
-
-        String[] nickNames = {"选中雇佣", "选中不雇佣"};
-
-    }
-
-    public interface NotifyFriendType {
-
-        int NOTIFY = 0;
-        int DONT_NOTIFY = 1;
-
-        String[] nickNames = {"选中通知", "选中不通知"};
-
     }
 }
