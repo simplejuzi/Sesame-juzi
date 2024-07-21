@@ -379,9 +379,9 @@ public class AntFarm extends ModelTask {
             }
 
             // 一起拿小鸡饲料
-            if (getFeed.getValue())
+            if (getFeed.getValue()) {
                 letsGetChickenFeedTogether();
-
+            }
             //小鸡睡觉&起床
             animalSleepAndWake();
 
@@ -2182,7 +2182,6 @@ public class AntFarm extends ModelTask {
                 int hasInvitedCount = 0;
 
                 List<String> userIdList = new ArrayList<>(); // 保存 userId
-
                 for (int i = 0; i < p2pCanInvitePersonDetailList.length(); i++) {
                     JSONObject personDetail = p2pCanInvitePersonDetailList.getJSONObject(i);
                     String inviteStatus = personDetail.getString("inviteStatus");
@@ -2204,6 +2203,7 @@ public class AntFarm extends ModelTask {
                 // 可以邀请的人数不超过五个
                 int remainingInvites = 5 - invitedToday;
                 int invitesToSend = Math.min(canInviteCount, remainingInvites);
+
                 if (invitesToSend==0)
                     return;
                 Set<String> getFeedSet = getFeedlList.getValue();
@@ -2224,7 +2224,7 @@ public class AntFarm extends ModelTask {
                                 break; // 如果邀请失败，根据需求处理中断操作
                             }
                         } else {
-                            // Log.record("用户 " + userId + " 不在勾选的好友列表中，不发送邀请。");
+//                             Log.record("用户 " + userId + " 不在勾选的好友列表中，不发送邀请。");
                         }
                     }
                 } else {

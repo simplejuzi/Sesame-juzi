@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import lombok.Data;
 
 import java.io.File;
+import java.time.LocalDate;
 import java.util.Calendar;
 
 @Data
@@ -74,10 +75,24 @@ public class Statistics {
     public static String getText() {
 
         StringBuilder table = new StringBuilder();
-        // 添加表头
-        table.append("今年  收: ").append(getData(TimeType.YEAR, DataType.COLLECTED)).append(" 帮: ").append(getData(TimeType.YEAR, DataType.HELPED)).append(" 浇: ").append(getData(TimeType.YEAR, DataType.WATERED));
-        table.append("\n今月  收: ").append(getData(TimeType.MONTH, DataType.COLLECTED)).append(" 帮: ").append(getData(TimeType.MONTH, DataType.HELPED)).append(" 浇: ").append(getData(TimeType.MONTH, DataType.WATERED));
-        table.append("\n今日  收: ").append(getData(TimeType.DAY, DataType.COLLECTED)).append(" 帮: ").append(getData(TimeType.DAY, DataType.HELPED)).append(" 浇: ").append(getData(TimeType.DAY, DataType.WATERED));
+        LocalDate currentDate = LocalDate.now();
+
+        // 获取当前年、月、日
+        int currentYear = currentDate.getYear();
+        int currentMonth = currentDate.getMonthValue();
+        int currentDay = currentDate.getDayOfMonth();
+
+        // 动态构建字符串
+        table.append(currentYear).append("年  收: ").append(getData(TimeType.YEAR, DataType.COLLECTED)).append(" 帮: ")
+                .append(getData(TimeType.YEAR, DataType.HELPED)).append(" 浇: ")
+                .append(getData(TimeType.YEAR, DataType.WATERED));
+        table.append("\n").append(currentMonth).append("月  收: ").append(getData(TimeType.MONTH, DataType.COLLECTED)).append(" 帮: ")
+                .append(getData(TimeType.MONTH, DataType.HELPED)).append(" 浇: ")
+                .append(getData(TimeType.MONTH, DataType.WATERED));
+        table.append("\n").append(currentDay).append("日  收: ").append(getData(TimeType.DAY, DataType.COLLECTED)).append(" 帮: ")
+                .append(getData(TimeType.DAY, DataType.HELPED)).append(" 浇: ")
+                .append(getData(TimeType.DAY, DataType.WATERED));
+
         return table.toString();
     }
 

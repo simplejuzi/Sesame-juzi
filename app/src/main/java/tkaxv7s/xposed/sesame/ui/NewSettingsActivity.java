@@ -347,6 +347,18 @@ public class NewSettingsActivity extends BaseActivity {
                         .show();
                 break;
             case 4:
+                Log.record("========================================");
+
+                for (AlipayUser alipayUser : AlipayUser.getList(user -> user.getFriendStatus() != 1)) {
+                    System.out.println(alipayUser);
+                    Toast.makeText(this, alipayUser.getId(), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, alipayUser.getName(), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, alipayUser.getPinyin().toString(), Toast.LENGTH_SHORT).show();
+                    Log.record(alipayUser.getId());
+                    Log.record(alipayUser.getName());
+                    Log.record(alipayUser.getPinyin().toString());
+                }
+                Log.record("========================================");
                 ListDialog.show(this, "单向好友列表", AlipayUser.getList(user -> user.getFriendStatus() != 1), SelectModelFieldFunc.newMapInstance(), false, ListDialog.ListType.SHOW);
                 break;
             case 5:

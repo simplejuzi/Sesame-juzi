@@ -29,7 +29,7 @@ public class UIConfig {
     public static synchronized UIConfig load() {
         File uiConfigFile = FileUtil.getUIConfigFile();
         try {
-            Log.record("加载UI配置");
+//            Log.record("加载UI配置");
             if (uiConfigFile.exists()) {
                 String json = FileUtil.readFromFile(uiConfigFile);
                 JsonUtil.copyMapper().readerForUpdating(INSTANCE).readValue(json);
